@@ -1,7 +1,7 @@
-
 import com.expensetracker.model.Expense;
 import com.expensetracker.repository.FileExpenseRepository;
 import com.expensetracker.service.ExpenseService;
+import com.expensetracker.validation.ExpenseValidator;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -34,6 +34,7 @@ public class Main extends JFrame {
         model = new DefaultTableModel(
             new String[]{"ID", "TITLE", "AMOUNT", "CATEGORY", "DATE"}, 0
         ) {
+            @Override
             public boolean isCellEditable(int r, int c) {
                 return false;
             }
@@ -130,16 +131,10 @@ public class Main extends JFrame {
         table.setShowVerticalLines(false);
         table.setIntercellSpacing(new Dimension(0, 1));
 
-        table.getTableHeader().setBackground(
-            new Color(35, 43, 68)
-        );
+        table.getTableHeader().setBackground(new Color(35, 43, 68));
         table.getTableHeader().setForeground(WHITE);
-        table.getTableHeader().setFont(
-            new Font("Segoe UI", Font.BOLD, 12)
-        );
-        table.getTableHeader().setPreferredSize(
-            new Dimension(0, 42)
-        );
+        table.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
+        table.getTableHeader().setPreferredSize(new Dimension(0, 42));
 
         JScrollPane scroll = new JScrollPane(table);
         scroll.setBorder(BorderFactory.createEmptyBorder());
@@ -174,15 +169,8 @@ public class Main extends JFrame {
         delete.addActionListener(e -> deleteExpense());
         refresh.addActionListener(e -> loadData());
 
-        search.addActionListener(e -> {
-            String key = JOptionPane.showInputDialog(
-                this, "Enter title or category:"
-            );
-            if (key != null && !key.isBlank()) {
-                display(service.search(key));
-                status.setText("  Search results: " + key);
-            }
-        });
+        // Smart Search: automatically chooses normal or advanced search.
+        search.addActionListener(e -> performSmartSearch());
 
         filter.addActionListener(e -> {
             String category = filter.getSelectedItem().toString();
@@ -194,6 +182,73 @@ public class Main extends JFrame {
                 status.setText("  Filter: " + category);
             }
         });
+    }
+
+    /**
+     * Opens the search dialog and automatically detects whether the user
+     * entered a normal keyword or an Expense Query Language expression.
+     */
+    private void performSmartSearch() {
+        String key = JOptionPane.showInputDialog(
+            this,
+            "Smart Search: enter a title, category, or condition.\n"
+                + "Examples:\n"
+                + "  books\n"
+                + "  FOOD\n"
+                + "  amount > 500\n"
+                + "  category == FOOD AND amount >= 500\n"
+                + "  (category == FOOD OR category == EDUCATION) AND amount >= 500",
+            "Smart Search",
+            JOptionPane.QUESTION_MESSAGE
+        );
+
+        if (key == null || key.isBlank()) {
+            return;
+        }
+
+        key = key.trim();
+
+        try {
+            // Backward compatibility: users may still type the old prefix.
+            if (key.regionMatches(true, 0, "query:", 0, 6)) {
+                key = key.substring(6).trim();
+            }
+
+            if (isAdvancedQuery(key)) {
+                List<Expense> results = service.advancedSearch(key);
+                display(results);
+                status.setText("  Advanced query: " + key
+                    + " | Results: " + results.size());
+            } else {
+                List<Expense> results = service.search(key);
+                display(results);
+                status.setText("  Search results: " + key
+                    + " | Results: " + results.size());
+            }
+        } catch (RuntimeException ex) {
+            JOptionPane.showMessageDialog(
+                this,
+                "Could not process the search.\n"
+                    + "Please check the query syntax.\n\n"
+                    + ex.getMessage(),
+                "Search Error",
+                JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+
+    /**
+     * Detects EQL expressions by looking for a supported field followed by
+     * a comparison operator. Plain words such as "books" and "FOOD" remain
+     * normal title/category searches.
+     */
+    private boolean isAdvancedQuery(String input) {
+        String query = input.trim();
+
+        return query.matches(
+            "(?is).*\\b(amount|category|title)\\s*"
+                + "(==|!=|>=|<=|>|<|contains)\\s*.+"
+        );
     }
 
     private JPanel createCard(String title, JLabel value) {
@@ -245,17 +300,25 @@ public class Main extends JFrame {
         if (JOptionPane.showConfirmDialog(
             this, fields, "Add New Expense",
             JOptionPane.OK_CANCEL_OPTION
-        ) != JOptionPane.OK_OPTION) return;
+        ) != JOptionPane.OK_OPTION) {
+            return;
+        }
 
         try {
-            if (title.getText().isBlank())
-                throw new IllegalArgumentException("Title required");
+            ExpenseValidator.validate(
+                title.getText(),
+                amount.getText(),
+                category.getSelectedItem().toString()
+            );
 
             int id = service.getAll().stream()
-                .mapToInt(Expense::getId).max().orElse(0) + 1;
+                .mapToInt(Expense::getId)
+                .max()
+                .orElse(0) + 1;
 
             Expense expense = new Expense(
-                id, title.getText().trim(),
+                id,
+                title.getText().trim(),
                 Double.parseDouble(amount.getText()),
                 category.getSelectedItem().toString(),
                 LocalDate.now()
@@ -278,15 +341,16 @@ public class Main extends JFrame {
 
         int id = Integer.parseInt(model.getValueAt(row, 0).toString());
         Expense old = service.getAll().stream()
-            .filter(e -> e.getId() == id).findFirst().orElse(null);
+            .filter(e -> e.getId() == id)
+            .findFirst()
+            .orElse(null);
 
-        if (old == null) return;
+        if (old == null) {
+            return;
+        }
 
         JTextField title = new JTextField(old.getTitle());
-        JTextField amount = new JTextField(
-            String.valueOf(old.getAmount())
-        );
-
+        JTextField amount = new JTextField(String.valueOf(old.getAmount()));
         JTextField category = new JTextField(old.getCategory());
 
         Object[] fields = {
@@ -298,17 +362,28 @@ public class Main extends JFrame {
         if (JOptionPane.showConfirmDialog(
             this, fields, "Edit Expense",
             JOptionPane.OK_CANCEL_OPTION
-        ) != JOptionPane.OK_OPTION) return;
+        ) != JOptionPane.OK_OPTION) {
+            return;
+        }
 
         try {
+            ExpenseValidator.validate(
+                title.getText(),
+                amount.getText(),
+                category.getText()
+            );
+
             Expense updated = new Expense(
-                id, title.getText(),
+                id,
+                title.getText().trim(),
                 Double.parseDouble(amount.getText()),
                 category.getText().trim().toUpperCase(),
                 old.getDate()
             );
 
-            if (service.updateExpense(updated)) loadData();
+            if (service.updateExpense(updated)) {
+                loadData();
+            }
 
         } catch (Exception ex) {
             JOptionPane.showMessageDialog(this, ex.getMessage());
@@ -344,20 +419,21 @@ public class Main extends JFrame {
 
         for (Expense e : expenses) {
             model.addRow(new Object[]{
-                e.getId(), e.getTitle(),
+                e.getId(),
+                e.getTitle(),
                 String.format("%.2f", e.getAmount()),
-                e.getCategory(), e.getDate()
+                e.getCategory(),
+                e.getDate()
             });
         }
 
-        totalValue.setText(
-            String.format("Rs. %.2f", service.getTotal())
-        );
-
+        // Keep dashboard totals based on all stored expenses, not only
+        // the currently displayed search results.
+        totalValue.setText(String.format("Rs. %.2f", service.getTotal()));
         countValue.setText(String.valueOf(service.getAll().size()));
     }
 
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new Main());
+        SwingUtilities.invokeLater(Main::new);
     }
 }

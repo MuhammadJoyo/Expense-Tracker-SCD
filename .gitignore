@@ -4,3 +4,5 @@
 .vscode/
 
 target/
+
+data/expenses.csv

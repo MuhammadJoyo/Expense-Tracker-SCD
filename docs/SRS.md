@@ -20,3 +20,7 @@ Expense Tracker manages personal expense records through a desktop interface.
 The current version is designed for a single local user.
 ## 5. Constraints
 The current version uses local file storage and does not provide authentication, cloud synchronization or network-based multi-user access.
+## 6. Advanced Query Language
+- FR9: The system shall support EQL queries on amount, category and title.
+- FR10: The query language shall support AND, OR and parentheses.
+- FR11: Invalid query syntax shall be rejected with an explanatory error.

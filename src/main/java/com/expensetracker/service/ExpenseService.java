@@ -41,6 +41,13 @@ public class ExpenseService {
             Expense::getCategory, Collectors.summingDouble(Expense::getAmount)));
     }
 
+    /** Evaluates the small Expense Query Language (EQL). */
+    public List<Expense> advancedSearch(String query) {
+        return getAll().stream()
+            .filter(expense -> com.expensetracker.query.ExpenseQuery.matches(query, expense))
+            .collect(Collectors.toList());
+    }
+
     public List<String> expenseTitles() {
         return getAll().stream().map(Expense::getTitle)
             .collect(Collectors.toList());

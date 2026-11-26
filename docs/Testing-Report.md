@@ -1,16 +1,29 @@
 # Testing Report
-## Test Framework
-JUnit 5 with Maven Surefire.
-## Executed Tests
-| Test | Expected result |
-|---|---|
-| Valid expense creation | Expense created |
-| Negative amount | Rejected |
-| Empty title | Rejected |
-| Equality using same ID | Equal objects |
-## Verified Execution
-Command: mvn clean test
-Result: 4 tests run, 0 failures, 0 errors, 0 skipped.
-## Additional Manual Tests
-The Swing application was launched successfully. The dashboard displayed a saved expense and calculated the total.
-Add/edit/delete/search/filter and restart persistence should be manually verified before final submission.
+## Test Environment
+- Java 17
+- Maven
+- JUnit 5
+- Windows
+## Automated Test Results
+The project test suite completed successfully.
+| Test Class | Tests |
+|---|---:|
+| ExpenseTest | 4 |
+| ValidationAndQueryTest | 5 |
+| RecursiveExpenseSearchTest | 3 |
+| ConcurrentTaskProcessorTest | 1 |
+| ExpenseServerTest | 1 |
+| **Total** | **14** |
+## Result
+- Tests passed: 14
+- Failures: 0
+- Errors: 0
+- Skipped: 0
+- Build: SUCCESS
+## Manual GUI Verification
+- Application launches using run.bat.
+- Expense management GUI opens.
+- Smart Search supports advanced query expressions.
+## Limitations
+- Tests cover implemented modules, not every possible user interaction.
+- Networking tests use localhost.
